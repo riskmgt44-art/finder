@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: educational-tracker
+    env: node
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_VERSION
+        value: 18.17.0
+      - key: NODE_ENV
+        value: production

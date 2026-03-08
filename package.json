@@ -1,0 +1,15 @@
+{
+  "name": "educational-tracker-demo",
+  "version": "1.0.0",
+  "description": "Educational Privacy Demonstration Tool",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": "18.x"
+  },
+  "keywords": ["education", "privacy", "tracking", "demo"],
+  "author": "",
+  "license": "MIT"
+}
