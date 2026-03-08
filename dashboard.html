@@ -319,6 +319,22 @@
       font-size: 11px;
       color: #666;
     }
+    
+    .coord-link {
+      color: #28a745;
+      text-decoration: none;
+      font-weight: 600;
+      display: inline-block;
+      padding: 3px 8px;
+      background: #e8f5e9;
+      border-radius: 15px;
+      margin-top: 5px;
+      font-size: 11px;
+    }
+    
+    .coord-link:hover {
+      background: #c8e6c9;
+    }
 
     .webrtc-cell {
       font-family: 'Monaco', monospace;
@@ -409,7 +425,7 @@
       </div>
       <div class="header-right">
         <div class="total-targets">
-          📊 TOTAL TARGETS <span>{{TOTAL_TRACKS}}</span>
+          📊 TOTAL TARGETS <span id="totalTargets">0</span>
         </div>
         <button class="refresh-btn" onclick="location.reload()">
           🔄 REFRESH NOW
@@ -423,7 +439,7 @@
           <div class="stat-icon">📍</div>
           <h3>Real Locations</h3>
         </div>
-        <div class="stat-value">{{REAL_LOCATIONS}}</div>
+        <div class="stat-value" id="realLocations">0</div>
         <div class="stat-label">✓ Verified IP geolocation</div>
       </div>
 
@@ -432,7 +448,7 @@
           <div class="stat-icon">🚫</div>
           <h3>No Location</h3>
         </div>
-        <div class="stat-value">{{NO_LOCATION}}</div>
+        <div class="stat-value" id="noLocation">0</div>
         <div class="stat-label">⚡ Private IP / VPN / Proxy</div>
       </div>
 
@@ -441,7 +457,7 @@
           <div class="stat-icon">🕵️</div>
           <h3>WebRTC Leaks</h3>
         </div>
-        <div class="stat-value">{{WEBRTC_LEAKS}}</div>
+        <div class="stat-value" id="webrtcLeaks">0</div>
         <div class="stat-label">🌐 Local IP exposed</div>
       </div>
 
@@ -450,7 +466,7 @@
           <div class="stat-icon">🔋</div>
           <h3>Battery Data</h3>
         </div>
-        <div class="stat-value">{{BATTERY_COUNT}}</div>
+        <div class="stat-value" id="batteryCount">0</div>
         <div class="stat-label">⚡ Device battery levels</div>
       </div>
     </div>
@@ -487,7 +503,11 @@
           </tr>
         </thead>
         <tbody id="table-body">
-          <!-- Data will be populated by JavaScript -->
+          <tr>
+            <td colspan="7" style="text-align:center; padding:30px;">
+              ⏳ Loading tracking data...
+            </td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -499,22 +519,46 @@
   </div>
 
   <script>
-    const tracksData = JSON.parse('{{TRACKS_DATA}}') || [];
+    // Fetch tracks data from API
+    async function fetchTracks() {
+      try {
+        const response = await fetch('/api/tracks');
+        const tracks = await response.json();
+        renderDashboard(tracks);
+      } catch (error) {
+        console.error('Error fetching tracks:', error);
+      }
+    }
 
-    function renderTable(tracks) {
+    function renderDashboard(tracks) {
+      // Update stats
+      document.getElementById('totalTargets').textContent = tracks.length;
+      document.getElementById('realLocations').textContent = tracks.filter(t => t.geo && t.geo.real).length;
+      document.getElementById('noLocation').textContent = tracks.filter(t => !t.geo || !t.geo.real).length;
+      document.getElementById('webrtcLeaks').textContent = tracks.filter(t => t.fp && t.fp.webrtc).length;
+      document.getElementById('batteryCount').textContent = tracks.filter(t => t.fp && t.fp.battery).length;
+
+      // Render table
       const tbody = document.getElementById('table-body');
       tbody.innerHTML = '';
       
-      tracks.forEach(t => {
+      tracks.slice(0, 50).forEach(t => {
         if (!t.geo || !t.geo.real) {
           const row = document.createElement('tr');
           row.className = 'no-location';
+          
+          // Format IPs for display
+          let ipDisplay = t.ip || 'unknown';
+          if (Array.isArray(t.ip)) {
+            ipDisplay = t.ip.join(', ');
+          }
+          
           row.innerHTML = `
             <td class="time-cell">${t.ts ? t.ts.slice(11,19) : '??'}</td>
             <td colspan="6">
               🚫 No location data 
-              <span class="ip-badge">IP: ${t.ip || 'unknown'}</span>
-              ${t.fp?.webrtc ? `<span style="color:#999; margin-left:10px;">⚠️ WebRTC leak: ${t.fp.webrtc}</span>` : ''}
+              <span class="ip-badge">IP: ${ipDisplay}</span>
+              ${t.fp?.webrtc ? `<span style="color:#ff4757; margin-left:10px;">⚠️ WebRTC leak: ${t.fp.webrtc}</span>` : ''}
             </td>
           `;
           tbody.appendChild(row);
@@ -525,6 +569,10 @@
         const fp = t.fp || {};
         const battery = fp.battery ? (fp.battery.level || fp.battery) : '?';
         const batteryClass = battery > 70 ? 'battery-high' : (battery > 30 ? 'battery-medium' : 'battery-low');
+        
+        // Create Google Maps link for coordinates
+        const mapsLink = geo.lat && geo.lon ? 
+          `https://www.google.com/maps?q=${geo.lat},${geo.lon}` : '#';
         
         const row = document.createElement('tr');
         row.innerHTML = `
@@ -541,7 +589,10 @@
             <small>${geo.country || ''}</small>
           </td>
           <td class="coord-cell">
-            ${geo.lat ? geo.lat.toFixed(4) : '?'}, ${geo.lon ? geo.lon.toFixed(4) : '?'}
+            ${geo.lat ? geo.lat.toFixed(6) : '?'}, ${geo.lon ? geo.lon.toFixed(6) : '?'}
+            ${geo.lat && geo.lon ? 
+              `<a href="https://www.google.com/maps?q=${geo.lat},${geo.lon}" target="_blank" class="coord-link">🗺️ View on Map</a>` : 
+              ''}
           </td>
           <td class="webrtc-cell">${fp.webrtc || '—'}</td>
           <td class="battery-cell ${batteryClass}">${battery}%</td>
@@ -579,15 +630,15 @@
     async function clearData() {
       if (confirm('Delete all tracking data? This cannot be undone.')) {
         await fetch('/clear', { method: 'POST' });
-        location.reload();
+        fetchTracks();
       }
     }
 
+    // Initial load
+    fetchTracks();
+    
     // Auto-refresh every 5 seconds
-    setTimeout(() => location.reload(), 5000);
-
-    // Initial render
-    renderTable(tracksData);
+    setInterval(fetchTracks, 5000);
   </script>
 </body>
 </html>
